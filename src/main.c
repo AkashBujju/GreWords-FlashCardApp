@@ -32,7 +32,7 @@ typedef struct DoneIndices {
 
 Vector3 position, up, front;
 float cursor_x;
-Font font, m_font;
+Font font, m_font, s_font;
 unsigned int window_width, window_height;
 GLFWwindow *window = NULL;
 unsigned int current_week;
@@ -114,6 +114,9 @@ int main(int argc, char** argv) {
 		FT_Library ft_2;
 		init_freetype(&ft_2);
 		init_font(&m_font, combine_string(assets_path, "fonts/GeorgiaRegular.ttf"), &ft_2, 26);
+		FT_Library ft_3;
+		init_freetype(&ft_3);
+		init_font(&s_font, combine_string(assets_path, "fonts/Consolas.ttf"), &ft_3, 16);
 
 		load_file(&dictionary);
 		max_weeks = dictionary.num_weeks;
@@ -152,6 +155,16 @@ int main(int argc, char** argv) {
 			render_word_and_meaning(&dictionary, current_week, current_word, all_shaders.text_shader);
 		else
 			render_word(&dictionary, current_week, current_word, all_shaders.text_shader);
+
+		if(strcmp(conf_type, "full") == 0) {
+			render_text(&s_font, all_shaders.text_shader, "Type: full", 0.05f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
+		}
+		else if(strcmp(conf_type, "weekly") == 0) {
+			char str[30];
+			strcpy(str, "Type: weekly, Number: ");
+			strcat(str, conf_week);
+			render_text(&s_font, all_shaders.text_shader, str, 0.05f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
+		}
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
