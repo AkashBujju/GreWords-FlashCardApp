@@ -169,9 +169,26 @@ int main(int argc, char** argv) {
 			char word[15];
 			char number[10];
 			itoa(times_pressed + 1, number, 10);
-			strcpy(word, "word: ");
+			strcpy(word, "No. ");
 			strcat(word, number);
 			render_text(&s_font, all_shaders.text_shader, word, 0.90f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
+		}
+
+		{
+			char week_and_word[15];
+			char number[10];
+			unsigned int day = floor(current_index.word_index / 6);
+			unsigned int word_number = (current_index.word_index % 6) + 1;
+			itoa(current_index.week_index + 1, number, 10);
+			strcpy(week_and_word, "week: ");
+			strcat(week_and_word, number);
+			strcat(week_and_word, ", day: ");
+			itoa(day + 1, number, 10);
+			strcat(week_and_word, number);
+			strcat(week_and_word, ", word: ");
+			itoa(word_number, number, 10);
+			strcat(week_and_word, number);
+			render_text(&s_font, all_shaders.text_shader, week_and_word, 0.70f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
 		}
 
 		glfwSwapBuffers(window);
@@ -278,12 +295,12 @@ void update_random_index(int week_index) {
 }
 
 void render_word(Dictionary *dictionary, unsigned int week_index, unsigned int word_index, int shader) {
-	render_middle(dictionary->dictionary[week_index].words[word_index], &font, shader, window_width / 2, window_height / 2 + 100, 1, 0, 0);
+	render_middle(dictionary->dictionary[week_index].words[word_index], &font, shader, window_width / 2, window_height / 2 + 100, 0.75f, 0, 0);
 }
 
 void render_word_and_meaning(Dictionary *dictionary, unsigned int week_index, unsigned int word_index, int shader) {
-	render_middle(dictionary->dictionary[week_index].words[word_index], &font, shader, window_width / 2, window_height / 2 + 100, 1, 0, 0);
-	render_middle(dictionary->dictionary[week_index].meanings[word_index], &m_font, shader, window_width / 2, window_height / 2, 0, 1, 0);
+	render_middle(dictionary->dictionary[week_index].words[word_index], &font, shader, window_width / 2, window_height / 2 + 100, 0.75f, 0, 0);
+	render_middle(dictionary->dictionary[week_index].meanings[word_index], &m_font, shader, window_width / 2, window_height / 2, 0, 0.75f, 0);
 }
 
 void print_dictionary(Dictionary *dictionary) {
