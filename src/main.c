@@ -12,12 +12,12 @@
 #include "text.h"
 #include "all.h"
 
-#define MAX_WORDS 24
+#define MAX_WORDS_PER_WEEK 24
 
 typedef struct WeekDictionary {
 	unsigned int week;
-	char words[MAX_WORDS][50];
-	char meanings[MAX_WORDS][100];
+	char words[MAX_WORDS_PER_WEEK][50];
+	char meanings[MAX_WORDS_PER_WEEK][100];
 } WeekDictionary;
 
 typedef struct Dictionary {
@@ -26,19 +26,22 @@ typedef struct Dictionary {
 } Dictionary;
 
 typedef struct DoneIndices {
-	unsigned int indices[2000];
-	unsigned int length;
+	uint8_t indices[2000];
 } DoneIndices;
+
+typedef struct Index {
+	unsigned int week_index;
+	unsigned int word_index;
+	unsigned int index;
+} Index;
 
 Vector3 position, up, front;
 float cursor_x;
 Font font, m_font, s_font;
 unsigned int window_width, window_height;
 GLFWwindow *window = NULL;
-unsigned int current_week;
-unsigned int current_word;
+Index current_index;
 unsigned int max_weeks;
-unsigned int max_words;
 unsigned int times_pressed;
 uint8_t show_full;
 char conf_type[10], conf_week[10];
@@ -61,8 +64,9 @@ void get_word_and_meaning(char* from, char *word, char *meaning);
 void print_dictionary(Dictionary *dictionary);
 void render_word_and_meaning(Dictionary *dictionary, unsigned int week_index, unsigned int word_index, int shader);
 void render_word(Dictionary *dictionary, unsigned int week_index, unsigned int word_index, int shader);
-int get_random_number(int max);
+void update_random_index(int week_index);
 int convert_week_and_word_to_index(int week_index, int word_index);
+int get_random_number(int max);
 
 const char* assets_path = "../data/";
 const char* shaders_path = "../shaders/";
@@ -120,18 +124,13 @@ int main(int argc, char** argv) {
 
 		load_file(&dictionary);
 		max_weeks = dictionary.num_weeks;
-		max_words = MAX_WORDS;
-		done_indices.length = 0;
 		{
-			current_word = get_random_number(max_words);
 			if(strcmp(conf_type, "full") == 0)
-				current_week = get_random_number(max_weeks);
+				current_index.week_index = get_random_number(max_weeks);
 			else if(strcmp(conf_type, "weekly") == 0)
-				current_week = atoi(conf_week) - 1;
-			if(strcmp(conf_type, "full") == 0)
-				done_indices.indices[done_indices.length++] = convert_week_and_word_to_index(current_week, current_word);
-			else if(strcmp(conf_type, "weekly") == 0)
-				done_indices.indices[done_indices.length++] = convert_week_and_word_to_index(atoi(conf_week) - 1, current_word);
+				current_index.week_index = atoi(conf_week) - 1;
+			update_random_index(current_index.week_index);
+			done_indices.indices[current_index.index] = 1;
 		}
 		show_full = 0;
 		times_pressed = 0;
@@ -152,9 +151,9 @@ int main(int argc, char** argv) {
 		set_matrix4(all_shaders.rect_2d_shader, "projection", &ortho_projection);
 
 		if(show_full)
-			render_word_and_meaning(&dictionary, current_week, current_word, all_shaders.text_shader);
+			render_word_and_meaning(&dictionary, current_index.week_index, current_index.word_index, all_shaders.text_shader);
 		else
-			render_word(&dictionary, current_week, current_word, all_shaders.text_shader);
+			render_word(&dictionary, current_index.week_index, current_index.word_index, all_shaders.text_shader);
 
 		if(strcmp(conf_type, "full") == 0) {
 			render_text(&s_font, all_shaders.text_shader, "Type: full", 0.05f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
@@ -164,6 +163,15 @@ int main(int argc, char** argv) {
 			strcpy(str, "Type: weekly, Number: ");
 			strcat(str, conf_week);
 			render_text(&s_font, all_shaders.text_shader, str, 0.05f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
+		}
+
+		{
+			char word[15];
+			char number[10];
+			itoa(times_pressed + 1, number, 10);
+			strcpy(word, "word: ");
+			strcat(word, number);
+			render_text(&s_font, all_shaders.text_shader, word, 0.90f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
 		}
 
 		glfwSwapBuffers(window);
@@ -243,22 +251,30 @@ void load_full(Dictionary *dictionary) {
 }
 
 int get_random_number(int max) {
-	if(times_pressed % 10 == 0)
+	return rand() % max;
+}
+
+void update_random_index(int week_index) {
+	if(times_pressed % 24 == 0)
 		srand(time(0));
 
-	int random_number = rand() % max;
-	for(int i = 0; i < done_indices.length; ++i) {
-		if(done_indices.indices[i] == random_number) {
-			random_number = rand() % max;
-			if(i == max - 1) {
-				done_indices.length = 0;
-				return 0;
-			}
-			i = 0;
-		}
+	int random_number = rand() % MAX_WORDS_PER_WEEK;
+	int times_tried = 0;
+	int index = 0;
+	while(1) {
+		index = convert_week_and_word_to_index(week_index, random_number);
+		if(times_tried > 10)
+			break;
+		if(done_indices.indices[index] == 0)
+			break;
+
+		random_number = rand() % MAX_WORDS_PER_WEEK;
+		times_tried += 1;
 	}
 
-	return random_number;
+	current_index.word_index = random_number;
+	current_index.week_index = week_index;
+	current_index.index = index;
 }
 
 void render_word(Dictionary *dictionary, unsigned int week_index, unsigned int word_index, int shader) {
@@ -273,7 +289,7 @@ void render_word_and_meaning(Dictionary *dictionary, unsigned int week_index, un
 void print_dictionary(Dictionary *dictionary) {
 	unsigned int num = 1;
 	for(unsigned int i = 0; i < dictionary->num_weeks; ++i) {
-		for(unsigned int j = 0; j < MAX_WORDS; ++j) {
+		for(unsigned int j = 0; j < MAX_WORDS_PER_WEEK; ++j) {
 			printf("%d: %s -> %s\n", num, dictionary->dictionary[i].words[j], dictionary->dictionary[i].meanings[j]);
 			num += 1;
 		}
@@ -296,7 +312,6 @@ void render_middle(const char* text, Font *font, unsigned int shader, int x, int
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-
 	}
 }
 
@@ -309,17 +324,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	else if(key == GLFW_KEY_S && action == GLFW_PRESS)
 		show_full = 1;
 	else if(key == GLFW_KEY_ENTER && action == GLFW_PRESS) {
-		current_word = get_random_number(max_words);
-
 		if(strcmp(conf_type, "full") == 0)
-			current_week = get_random_number(max_weeks);
+			current_index.week_index = get_random_number(max_weeks);
 		else if(strcmp(conf_type, "weekly") == 0)
-			current_week = atoi(conf_week) - 1;
+			current_index.week_index = atoi(conf_week) - 1;
 
-		if(strcmp(conf_type, "full") == 0)
-			done_indices.indices[done_indices.length++] = convert_week_and_word_to_index(current_week, current_word);
-		else if(strcmp(conf_type, "weekly") == 0)
-			done_indices.indices[done_indices.length++] = convert_week_and_word_to_index(atoi(conf_week) - 1, current_word);
+		update_random_index(current_index.week_index);
+		done_indices.indices[current_index.index] = 1;
 
 		times_pressed += 1;
 		show_full = 0;
