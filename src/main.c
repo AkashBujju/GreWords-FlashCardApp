@@ -281,7 +281,7 @@ void update_random_index(int week_index) {
 	int index = 0;
 	while(1) {
 		index = convert_week_and_word_to_index(week_index, random_number);
-		if(times_tried > 10)
+		if(times_tried > 24)
 			break;
 		if(done_indices.indices[index] == 0)
 			break;
