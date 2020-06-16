@@ -72,11 +72,16 @@ const char* assets_path = "../data/";
 const char* shaders_path = "../shaders/";
 
 int main(int argc, char** argv) {
+	printf("Starting main\n");
+
 	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_SAMPLES, 16); // @Note: On intel machines antialiasing has to be turned on.
+#ifdef __APPLE__
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
+	glfwWindowHint(GLFW_SAMPLES, 1); // @Note: On intel machines antialiasing has to be turned on.
 
 	GLFWmonitor *monitor = glfwGetPrimaryMonitor();
 	const GLFWvidmode *video_mode = glfwGetVideoMode(monitor);
@@ -127,22 +132,22 @@ int main(int argc, char** argv) {
 		{
 			if(strcmp(conf_type, "full") == 0)
 				current_index.week_index = get_random_number(max_weeks);
-			else if(strcmp(conf_type, "weekly") == 0)
+			else if(strcmp(conf_type, "weekly") == 0) {
 				current_index.week_index = atoi(conf_week) - 1;
+			}
 			update_random_index(current_index.week_index);
 			done_indices.indices[current_index.index] = 1;
 		}
 		show_full = 0;
 		times_pressed = 0;
 		srand(time(0));
+
 	}
 
-	float fps = 0;
-	float start = clock();
-	while (!glfwWindowShouldClose(window)) {
-		float now = (clock() - start) / CLOCKS_PER_SEC;
 
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	Vector3 sc = {1, 1, 1};
+	while (!glfwWindowShouldClose(window)) {
+		glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		Vector3 pos_plus_front = add(&position, &front);
@@ -156,39 +161,42 @@ int main(int argc, char** argv) {
 			render_word(&dictionary, current_index.week_index, current_index.word_index, all_shaders.text_shader);
 
 		if(strcmp(conf_type, "full") == 0) {
-			render_text(&s_font, all_shaders.text_shader, "Type: full", 0.05f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
+			render_text(&s_font, all_shaders.text_shader, "Type: full", 0.05f * window_width, 0.05f * window_height, 1, sc.x, sc.y, sc.z);
 		}
 		else if(strcmp(conf_type, "weekly") == 0) {
 			char str[30];
 			strcpy(str, "Type: weekly, Number: ");
 			strcat(str, conf_week);
-			render_text(&s_font, all_shaders.text_shader, str, 0.05f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
+			render_text(&s_font, all_shaders.text_shader, str, 0.05f * window_width, 0.05f * window_height, 1, sc.x, sc.y, sc.z);
 		}
 
 		{
 			char word[15];
 			char number[10];
-			itoa(times_pressed + 1, number, 10);
 			strcpy(word, "No. ");
+			sprintf(number, "%d", times_pressed);
 			strcat(word, number);
-			render_text(&s_font, all_shaders.text_shader, word, 0.90f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
+			render_text(&s_font, all_shaders.text_shader, word, 0.90f * window_width, 0.05f * window_height, 1, sc.x, sc.y, sc.z);
 		}
 
 		{
-			char week_and_word[15];
+			char week_and_word[50];
 			char number[10];
 			unsigned int day = floor(current_index.word_index / 6);
 			unsigned int word_number = (current_index.word_index % 6) + 1;
-			itoa(current_index.week_index + 1, number, 10);
+			sprintf(number, "%d", current_index.week_index + 1);
+
 			strcpy(week_and_word, "week: ");
 			strcat(week_and_word, number);
 			strcat(week_and_word, ", day: ");
-			itoa(day + 1, number, 10);
+			sprintf(number, "%d", day + 1);
+
 			strcat(week_and_word, number);
 			strcat(week_and_word, ", word: ");
-			itoa(word_number, number, 10);
+			sprintf(number, "%d", word_number);
 			strcat(week_and_word, number);
-			render_text(&s_font, all_shaders.text_shader, week_and_word, 0.70f * window_width, 0.05f * window_height, 1, 0.5f, 0.5f, 0.5f);
+
+			render_text(&s_font, all_shaders.text_shader, week_and_word, 0.70f * window_width, 0.05f * window_height, 1, sc.x, sc.y, sc.z);
 		}
 
 		glfwSwapBuffers(window);
@@ -222,6 +230,8 @@ void load_file(Dictionary *dictionary) {
 		fscanf(file, "%s", tmp);
 		fscanf(file, "%s", conf_week);
 
+		printf("conf_week: %s\n", conf_week);
+
 		fclose(file);
 	}
 
@@ -241,7 +251,6 @@ void load_full(Dictionary *dictionary) {
 	else {
 		char *line = NULL;
 		size_t len = 0;
-		char word[50], meaning[100];
 
 		unsigned int week_index = 0;
 		unsigned int word_index = 0;
@@ -280,7 +289,7 @@ void update_random_index(int week_index) {
 	int index = 0;
 	while(1) {
 		index = convert_week_and_word_to_index(week_index, random_number);
-		if(times_tried > 10)
+		if(times_tried > 24)
 			break;
 		if(done_indices.indices[index] == 0)
 			break;
@@ -295,12 +304,12 @@ void update_random_index(int week_index) {
 }
 
 void render_word(Dictionary *dictionary, unsigned int week_index, unsigned int word_index, int shader) {
-	render_middle(dictionary->dictionary[week_index].words[word_index], &font, shader, window_width / 2, window_height / 2 + 100, 0.75f, 0, 0);
+	render_middle(dictionary->dictionary[week_index].words[word_index], &font, shader, window_width / 2, window_height / 2 + 100, 1, 0, 0);
 }
 
 void render_word_and_meaning(Dictionary *dictionary, unsigned int week_index, unsigned int word_index, int shader) {
-	render_middle(dictionary->dictionary[week_index].words[word_index], &font, shader, window_width / 2, window_height / 2 + 100, 0.75f, 0, 0);
-	render_middle(dictionary->dictionary[week_index].meanings[word_index], &m_font, shader, window_width / 2, window_height / 2, 0, 0.75f, 0);
+	render_middle(dictionary->dictionary[week_index].words[word_index], &font, shader, window_width / 2, window_height / 2 + 100, 1, 0, 0);
+	render_middle(dictionary->dictionary[week_index].meanings[word_index], &m_font, shader, window_width / 2, window_height / 2, 0, 1, 0);
 }
 
 void print_dictionary(Dictionary *dictionary) {
