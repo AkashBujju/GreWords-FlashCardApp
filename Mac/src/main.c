@@ -87,9 +87,9 @@ int main(int argc, char** argv) {
 	const GLFWvidmode *video_mode = glfwGetVideoMode(monitor);
 	window_width = video_mode->width;
 	window_height = video_mode->height;
-	window = glfwCreateWindow(window_width, window_height, "Hello, World", monitor, NULL);
+	window = glfwCreateWindow(window_width, window_height, "Hello, World", NULL, NULL);
 
-	glfwMaximizeWindow(window);	
+	// glfwMaximizeWindow(window);	
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
@@ -144,7 +144,6 @@ int main(int argc, char** argv) {
 
 	}
 
-
 	Vector3 sc = {1, 1, 1};
 	while (!glfwWindowShouldClose(window)) {
 		glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
@@ -174,7 +173,7 @@ int main(int argc, char** argv) {
 			char word[15];
 			char number[10];
 			strcpy(word, "No. ");
-			sprintf(number, "%d", times_pressed);
+			sprintf(number, "%d", times_pressed + 1);
 			strcat(word, number);
 			render_text(&s_font, all_shaders.text_shader, word, 0.90f * window_width, 0.05f * window_height, 1, sc.x, sc.y, sc.z);
 		}
@@ -281,7 +280,7 @@ int get_random_number(int max) {
 }
 
 void update_random_index(int week_index) {
-	if(times_pressed % 24 == 0)
+	if(times_pressed == 24)
 		srand(time(0));
 
 	int random_number = rand() % MAX_WORDS_PER_WEEK;
@@ -289,8 +288,10 @@ void update_random_index(int week_index) {
 	int index = 0;
 	while(1) {
 		index = convert_week_and_word_to_index(week_index, random_number);
-		if(times_tried > 24)
-			break;
+		if(times_tried > 24) {
+			memset(done_indices.indices, 0, 24 * sizeof(uint8_t));
+			times_tried = 0;
+		}
 		if(done_indices.indices[index] == 0)
 			break;
 
@@ -298,6 +299,7 @@ void update_random_index(int week_index) {
 		times_tried += 1;
 	}
 
+	// printf("index: %d, value: %d\n", index, done_indices.indices[index]);
 	current_index.word_index = random_number;
 	current_index.week_index = week_index;
 	current_index.index = index;
