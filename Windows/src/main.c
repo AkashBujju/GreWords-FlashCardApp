@@ -72,24 +72,26 @@ const char* assets_path = "../data/";
 const char* shaders_path = "../shaders/";
 
 int main(int argc, char** argv) {
+	printf("Starting main\n");
+
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
-	glfwWindowHint(GLFW_SAMPLES, 16); // @Note: On intel machines antialiasing has to be turned on.
-
-	printf("Hello, World");
+	glfwWindowHint(GLFW_SAMPLES, 1); // @Note: On intel machines antialiasing has to be turned on.
 
 	GLFWmonitor *monitor = glfwGetPrimaryMonitor();
 	const GLFWvidmode *video_mode = glfwGetVideoMode(monitor);
 	window_width = video_mode->width;
 	window_height = video_mode->height;
-	window = glfwCreateWindow(window_width, window_height, "Hello, World", monitor, NULL);
+	window = glfwCreateWindow(window_width, window_height, "Hello, World", NULL, NULL);
 
+#if _WIN32
 	glfwMaximizeWindow(window);	
+#endif
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
@@ -132,22 +134,20 @@ int main(int argc, char** argv) {
 		{
 			if(strcmp(conf_type, "full") == 0)
 				current_index.week_index = get_random_number(max_weeks);
-			else if(strcmp(conf_type, "weekly") == 0)
+			else if(strcmp(conf_type, "weekly") == 0) {
 				current_index.week_index = atoi(conf_week) - 1;
+			}
 			update_random_index(current_index.week_index);
 			done_indices.indices[current_index.index] = 1;
 		}
 		show_full = 0;
 		times_pressed = 0;
 		srand(time(0));
+
 	}
 
-	float fps = 0;
-	float start = clock();
 	Vector3 sc = {1, 1, 1};
 	while (!glfwWindowShouldClose(window)) {
-		float now = (clock() - start) / CLOCKS_PER_SEC;
-
 		glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -174,30 +174,29 @@ int main(int argc, char** argv) {
 		{
 			char word[15];
 			char number[10];
-			sprintf(number, "%d", times_pressed);
-			// itoa(times_pressed + 1, number, 10);
 			strcpy(word, "No. ");
+			sprintf(number, "%d", times_pressed + 1);
 			strcat(word, number);
 			render_text(&s_font, all_shaders.text_shader, word, 0.90f * window_width, 0.05f * window_height, 1, sc.x, sc.y, sc.z);
 		}
 
 		{
-			char week_and_word[15];
+			char week_and_word[50];
 			char number[10];
 			unsigned int day = floor(current_index.word_index / 6);
 			unsigned int word_number = (current_index.word_index % 6) + 1;
 			sprintf(number, "%d", current_index.week_index + 1);
-			// itoa(current_index.week_index + 1, number, 10);
+
 			strcpy(week_and_word, "week: ");
 			strcat(week_and_word, number);
 			strcat(week_and_word, ", day: ");
 			sprintf(number, "%d", day + 1);
-			// itoa(day + 1, number, 10);
+
 			strcat(week_and_word, number);
 			strcat(week_and_word, ", word: ");
 			sprintf(number, "%d", word_number);
-			// itoa(word_number, number, 10);
 			strcat(week_and_word, number);
+
 			render_text(&s_font, all_shaders.text_shader, week_and_word, 0.70f * window_width, 0.05f * window_height, 1, sc.x, sc.y, sc.z);
 		}
 
@@ -232,6 +231,8 @@ void load_file(Dictionary *dictionary) {
 		fscanf(file, "%s", tmp);
 		fscanf(file, "%s", conf_week);
 
+		printf("conf_week: %s\n", conf_week);
+
 		fclose(file);
 	}
 
@@ -251,7 +252,6 @@ void load_full(Dictionary *dictionary) {
 	else {
 		char *line = NULL;
 		size_t len = 0;
-		char word[50], meaning[100];
 
 		unsigned int week_index = 0;
 		unsigned int word_index = 0;
@@ -282,7 +282,7 @@ int get_random_number(int max) {
 }
 
 void update_random_index(int week_index) {
-	if(times_pressed % 24 == 0)
+	if(times_pressed == 24)
 		srand(time(0));
 
 	int random_number = rand() % MAX_WORDS_PER_WEEK;
@@ -290,8 +290,10 @@ void update_random_index(int week_index) {
 	int index = 0;
 	while(1) {
 		index = convert_week_and_word_to_index(week_index, random_number);
-		if(times_tried > 24)
-			break;
+		if(times_tried > 24) {
+			memset(done_indices.indices, 0, 24 * sizeof(uint8_t));
+			times_tried = 0;
+		}
 		if(done_indices.indices[index] == 0)
 			break;
 
@@ -299,6 +301,7 @@ void update_random_index(int week_index) {
 		times_tried += 1;
 	}
 
+	// printf("index: %d, value: %d\n", index, done_indices.indices[index]);
 	current_index.word_index = random_number;
 	current_index.week_index = week_index;
 	current_index.index = index;

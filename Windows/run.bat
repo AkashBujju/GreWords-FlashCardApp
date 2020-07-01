@@ -1,4 +1,4 @@
 @echo off
 pushd bin
-game.exe
+gre_cards.exe
 popd bin
